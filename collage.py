@@ -86,7 +86,7 @@ def generate_collage(data, key_dates, blacklist, key_start, key_end, square_size
             row = final_rows - 1
             col = final_cols - 1
         else:
-            row = (idx / final_rows)
+            row = math.floor(idx / final_rows)
             col = math.floor(idx % final_rows)
         rel = Image.open(image_url)
         resized = rel.resize((square_size, square_size))
