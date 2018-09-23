@@ -141,4 +141,4 @@ pip-selfcheck.json
 
 image_cache/*
 
-collage.png
+*.png

@@ -2,6 +2,7 @@ import sys
 from PIL import Image
 from parse_products import parse_pages, LABEL_URLS
 from yaml import load
+from progress.bar import Bar
 import dateparser
 import pytz
 import argparse
@@ -31,7 +32,7 @@ def download_images(data):
     return list(map(lambda x: (x, download_release(x)), data))
 
 
-def generate_collage(data, key_dates, blacklist, key_start, key_end, square_size, rows=None, cols=None, **kwargs):
+def generate_collage(data, key_dates, blacklist, key_start, key_end, square_size, output, rows=None, cols=None, **kwargs):
     # First, find the start and end key dates
     start_key = next(x for x in key_dates if x["name"] == key_start)
     end_key = next(x for x in key_dates if x["name"] == key_end)
@@ -39,7 +40,7 @@ def generate_collage(data, key_dates, blacklist, key_start, key_end, square_size
     # Next, find all the releases in between the key dates
     releases = [x for x in data if start_key["date"]
                 < x["release_date"] < end_key["date"]]
-    
+
     # Remove blacklisted releases
     releases = [x for x in releases if x["id"] not in blacklist]
 
@@ -66,11 +67,18 @@ def generate_collage(data, key_dates, blacklist, key_start, key_end, square_size
         final_cols = math.ceil(number_of_things / rows)
     else:
         side_len = math.sqrt(number_of_things)
-        final_rows = math.ceil(side_len)
+        final_rows = math.floor(side_len)
         final_cols = math.ceil(side_len)
+        if final_rows * final_cols < number_of_things:
+            final_rows += math.ceil((number_of_things - (final_rows *
+                                                         final_cols)) / side_len)
+    size = final_rows * final_cols
 
-    print("Creating a {}x{} collage ({})".format(
-        final_rows, final_cols, number_of_things))
+    print("Creating a {}x{} collage at {} ({}, {}x{})".format(
+        final_cols, final_rows, output, number_of_things, final_cols * square_size, final_rows * square_size))
+
+    if size < number_of_things:
+        print("WARNING: the selected size is too small to fit everything!")
 
     img = Image.new("RGB", (final_cols * square_size,
                             final_rows * square_size))
@@ -79,22 +87,23 @@ def generate_collage(data, key_dates, blacklist, key_start, key_end, square_size
 
     image_urls.extend([(x, x["image"]) for x in relevant_key_dates])
 
-    image_urls = sorted(image_urls, key=lambda x: x[0]["date"] if "date" in x[0] else x[0]["release_date"])
+    image_urls = sorted(
+        image_urls, key=lambda x: x[0]["date"] if "date" in x[0] else x[0]["release_date"])
 
-    for idx, val in enumerate(image_urls):
+    for idx, val in Bar("Generating...").iter(enumerate(image_urls)):
         release, image_url = val
         # We special-case the last release
         if idx + 1 == len(image_urls):
             row = final_rows - 1
             col = final_cols - 1
         else:
-            row = math.floor(idx / final_rows)
-            col = math.floor(idx % final_rows)
+            row = math.floor(idx / final_cols)
+            col = idx % final_cols
         rel = Image.open(image_url)
         resized = rel.resize((square_size, square_size))
         img.paste(resized, (col * square_size, row * square_size))
-    
-    img.save("collage.png", "PNG")
+
+    img.save(output, "PNG")
 
 
 if __name__ == "__main__":
@@ -111,16 +120,18 @@ if __name__ == "__main__":
     parser.add_argument("--cols", type=int,
                         help="How many columns of releases should we generate")
     parser.add_argument("--square_size", type=int,
-                        help="How big should each square be", default=800)
+                        help="How big should each square be", default=200)
+    parser.add_argument("-o", "--output", type=str, default="output.png", help="What file to output to")
     args = vars(parser.parse_args())
 
     with open("key_dates.yaml", "r") as key_stream:
         key_dates = load(key_stream)
         key_dates = list(map(lambda x: {
-                         **x, "date": dateparser.parse(x["date"]).replace(tzinfo=pytz.UTC)}, key_dates))
+            **x, "date": dateparser.parse(x["date"]).replace(tzinfo=pytz.UTC)}, key_dates))
         with open("blacklist.yaml", "r") as blacklist_stream:
             blacklist = load(blacklist_stream)
             with open("overrides.yaml", "r") as overrides_stream:
                 overrides = load(overrides_stream)
-                data = parse_pages(LABEL_URLS[args["label"]], args["pages"], overrides)
+                data = parse_pages(
+                    LABEL_URLS[args["label"]], args["pages"], overrides)
                 generate_collage(data, key_dates, blacklist, **args)
