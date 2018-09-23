@@ -15,6 +15,8 @@ def download_release(release):
     url = release["image_url"]
     filename = os.path.basename(url)
     path = "image_cache/" + filename
+    if not os.path.exists("image_cache"):
+        os.mkdir("image_cache")
     if os.path.exists(path):
         return path
     print("Downloading {} to {}...".format(filename, path))
@@ -118,5 +120,7 @@ if __name__ == "__main__":
                          **x, "date": dateparser.parse(x["date"]).replace(tzinfo=pytz.UTC)}, key_dates))
         with open("blacklist.yaml", "r") as blacklist_stream:
             blacklist = load(blacklist_stream)
-            data = parse_pages(LABEL_URLS[args["label"]], args["pages"])
-            generate_collage(data, key_dates, blacklist, **args)
+            with open("overrides.yaml", "r") as overrides_stream:
+                overrides = load(overrides_stream)
+                data = parse_pages(LABEL_URLS[args["label"]], args["pages"], overrides)
+                generate_collage(data, key_dates, blacklist, **args)

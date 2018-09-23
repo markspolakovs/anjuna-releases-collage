@@ -4,7 +4,7 @@ import sys
 import dateparser
 
 
-def parse_products(url, page=1):
+def parse_products(url, page=1, overrides = {}):
     r = requests.get(url.format(str(page)))
     soup = BeautifulSoup(r.text, "html.parser")
     products = soup.select(".product.release")
@@ -20,14 +20,19 @@ def parse_products(url, page=1):
         "release_date_src": x.find("dd", class_="product-release-date").find("meta")["content"],
         "id": x["data-id"]
     }, filtered)
-    return list(data)
+
+    overriden = map(lambda x: {
+        **x,
+        **(overrides[x["id"]] if x["id"] in overrides else {})
+    }, data)
+    return list(overriden)
 
 
-def parse_pages(url, pages=5):
+def parse_pages(url, pages=5, overrides={}):
     result = []
     for page in range(1, pages + 1):
         print("Parsing page {}".format(page))
-        data = parse_products(url, page)
+        data = parse_products(url, page, overrides)
         result.extend(data)
         print(len(result))
     return sorted(result, key=lambda x: x["release_date"], reverse=False)
