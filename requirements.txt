@@ -9,7 +9,7 @@ progress==1.4
 pycodestyle==2.4.0
 python-dateutil==2.7.3
 pytz==2018.5
-PyYAML==3.13
+PyYAML==5.4
 regex==2018.8.29
 requests==2.19.1
 six==1.11.0
